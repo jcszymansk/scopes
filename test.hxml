@@ -1,0 +1,10 @@
+-cs bin/
+
+-cp src/main/haxe
+-cp src/test/haxe
+
+-lib buddy
+
+-main scopes.MainTest
+
+-cmd mono bin/bin/MainTest.exe

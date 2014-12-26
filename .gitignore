@@ -1,0 +1,5 @@
+out/
+dump/
+bin/
+/Package
+.DS_Store
