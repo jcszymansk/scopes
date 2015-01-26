@@ -120,7 +120,7 @@ as expected:
 
 ```
 #!haxe
-@:autoBuild(scopes.Syntax.build())
+@:build(scopes.Syntax.build())
 class Example {
 
     private function doSomething() {
