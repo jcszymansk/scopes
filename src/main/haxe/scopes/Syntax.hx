@@ -30,6 +30,17 @@ class Syntax {
       case macro @protect { protected: $prot, cleanup: $clean }:
         transform(prot); transform(clean);
         ex.expr = (macro scopes.Protect.protect($prot, $clean)).expr;
+      case { expr: EMeta({ name: "quell", params: excs }, expr) }: {
+        transform(expr);
+        //FIXME indentation gone wild.
+        ex.expr =
+          ECall({ expr:
+            EField({ expr:
+              EField( { expr: EConst(CIdent("scopes")), pos: expr.pos }, "Protect" ),
+            pos: expr.pos }, "quell"),
+          pos: expr.pos },
+          [ expr ].concat(excs)) ;
+      }
       case { expr: EBlock(el) }: {
         ex.iter(transform);
         ex.expr = transformBlock(el).expr;

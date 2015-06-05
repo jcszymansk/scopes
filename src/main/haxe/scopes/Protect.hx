@@ -14,16 +14,35 @@ class Protect {
 
     var typedProt: Util.TypedExpression = protected;
 
-    return protectBuild(typedProt, cleanup, genSym(), typedProt.getType());
+    return protectBuild(typedProt, cleanup, genSym(), typedProt.getType(), genSym());
+  }
+
+  public static macro function quell(quelled: Expr, exceptions: Array<Expr>) {
+    
+    if (exceptions.length == 0) return macro try $quelled catch(_:Dynamic) {}
+    else {
+      var cc = [];
+      for (tt in exceptions) {
+        switch (tt.expr) {
+          case EConst(CIdent(t)): cc.push({ type: Context.toComplexType(Context.getType(t)), name: genSym(), expr: macro {} });
+          case EField(e, n): {
+            cc.push({ type: Context.toComplexType(Context.getType(recParseDotted(e, n))), name: genSym(), expr: macro{} });
+          }
+          default: Context.fatalError('use @quell(type1, type2, type2) expr, got: ${tt.expr}', quelled.pos);
+        }
+      }
+      return { expr: ETry(quelled, cc), pos: quelled.pos };
+    }
+
   }
 
   @:allow(scopes.Scope)
 #if macro
-  private static function protectBuild(protected: Expr, cleanup: Expr, statusName: String, type: Type) {
+  private static function protectBuild(protected: Expr, cleanup: Expr, statusName: String, type: Type, excName: String) {
     var flags = new TransformFlags();
     var transformed = transform(protected, flags);
 
-    var excName = genSym();
+//    var excName = genSym();
     var protVName = genSym();
 
     var isVoid = false;
@@ -140,7 +159,19 @@ class Protect {
         
     }
   }
-  
+
+#if macro
+  private static function recParseDotted(ex: Expr, n: String) {
+    return switch(ex.expr) {
+      case EConst(CIdent(name)): '${name}.${n}';
+      case EField(exx, nn): recParseDotted(exx, '${nn}.${n}');
+      default: Context.fatalError('use @quell(type1, type2, type2) expr', ex.pos);
+ 
+    };
+  }
+#end
+
+
 }
 
 private class TransformFlags {
