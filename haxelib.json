@@ -5,7 +5,7 @@
     "classPath": "src/main/haxe",
     "tags": ["try-finally", "cross", "utility", "autoclose", "scope", "guard", "scopes"],
     "description": "scope exit (guard) expressions, autoclose variables and protected (try/finally) for Haxe",
-    "version": "1.0.0",
-    "releasenote": "rename library to scopes, version 1.0.0",
+    "version": "1.1.0",
+    "releasenote": "fixed some bugs, added type guards to scopes and quell metadata",
     "contributors": ["jszymanski"]
 }

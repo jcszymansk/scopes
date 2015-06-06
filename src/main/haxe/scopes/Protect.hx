@@ -1,24 +1,25 @@
 package scopes;
 
+import haxe.macro.*;
 import haxe.macro.Expr;
-import haxe.macro.Context;
-using haxe.macro.ExprTools;
-import haxe.macro.ComplexTypeTools;
-import haxe.macro.Type;
-
 import scopes.Util.*;
+
+using haxe.macro.ExprTools;
 
 class Protect {
 
   public static macro function protect(protected: Expr, cleanup: Expr) {
 
-    var typedProt: Util.TypedExpression = protected;
-
-    return protectBuild(typedProt, cleanup, genSym(), typedProt.getType(), genSym());
+    var unmacroed = Context.getTypedExpr(Context.typeExpr(macro { $protected; 1; }));
+    var extracted = switch(unmacroed) {
+      case { expr: EBlock([{ expr: EBlock(el), pos: mpos }, _]) }: { expr: EBlock(el), pos: mpos };
+      default: throw "internal error";
+    }
+    return protectBuild(extracted, cleanup, genSym(), null, genSym());
   }
 
   public static macro function quell(quelled: Expr, exceptions: Array<Expr>) {
-    
+
     if (exceptions.length == 0) return macro try $quelled catch(_:Dynamic) {}
     else {
       var cc = [];
@@ -45,24 +46,34 @@ class Protect {
 //    var excName = genSym();
     var protVName = genSym();
 
-    var isVoid = false;
+    var useReturn = Context.getExpectedType() == null && needReturn(protected);
 
-    var defvar = switch(type) {
-      case TAbstract(t, _):
-        switch(t.get()) {
-          case { module: "StdTypes", pack: [], name: "Int" }: macro 0;
-          case { module: "StdTypes", pack: [], name: "Float" }: macro 0.0;
-          case { module: "StdTypes", pack: [], name: "Bool" }: macro false;
-          case { module: "StdTypes", pack: [], name: "Void" }: isVoid = true; macro false;
-          default: macro null;
-        }
-      default: macro null;
+    var isVoid = Context.getExpectedType() == null;
 
+    var defvar = macro null;
+
+    try {
+      var stype = Context.typeof(protected);
+
+      defvar = switch(stype) {
+        case TAbstract(t, _):
+          switch(t.get()) {
+            case { module: "StdTypes", pack: [], name: "Int" }: macro 0;
+            case { module: "StdTypes", pack: [], name: "Float" }: macro 0.0;
+            case { module: "StdTypes", pack: [], name: "Bool" }: macro false;
+            case { module: "StdTypes", pack: [], name: "Void" }: macro false;
+            default: macro null;
+          }
+        default: macro null;
+
+      }
     }
+    catch (_:Dynamic) {}
+
 
     var retName = genSym();
 
-    return macro {
+    var retExpr = macro {
 
       var $retName = ${defvar};
 
@@ -71,11 +82,11 @@ class Protect {
         throw scopes.Protect.ControlException.PassedOK;
       }
       catch ($excName: scopes.Protect.ControlException) {
-  
+
         var $statusName: Null<Bool> = true;
-  
+
         $cleanup;
-  
+
         switch ($i{excName}) {
           case scopes.Protect.ControlException.PassedOK:
             {}
@@ -87,20 +98,23 @@ class Protect {
             ${ flags.breaks ? macro { break; } : macro {} };
           case scopes.Protect.ControlException.Continue: 
             ${ flags.continues ? macro { continue; } : macro {} };
-  
+
         }
       }
       catch ($excName: Dynamic) {
         var $statusName: Null<Bool> = false;
-  
+
         $cleanup;
-  
+
         ${ rethrow(excName) };
       }
-  
-      ${ if(isVoid) macro {} else macro $i{retName} };
+
+      ${ if (useReturn) macro throw scopes.Protect.ProtectException.ShouldNotReach else if (!isVoid) macro $i{retName} else macro 1};
 
     };
+
+
+    return retExpr;
   }
 #else
   private static function protectBuild(protected: Expr, cleanup: Expr, statusName: String)
@@ -133,7 +147,7 @@ class Protect {
             ComplexTypeTools.toString(catches[0].type) == "scopes.Protect.ControlException")
           expr;
         else {
-        
+
           var ncatches = catches.map(function(cExp) {
             return {
               name : cExp.name,
@@ -156,7 +170,7 @@ class Protect {
       default: 
         var trans = transform.bind(_, flags, inLoop);
         expr.map(trans);
-        
+
     }
   }
 
@@ -166,8 +180,78 @@ class Protect {
       case EConst(CIdent(name)): '${name}.${n}';
       case EField(exx, nn): recParseDotted(exx, '${nn}.${n}');
       default: Context.fatalError('use @quell(type1, type2, type2) expr', ex.pos);
- 
+
     };
+  }
+
+
+  // check if all branches of ex end with return or throw
+  private static function needReturn(ex: Expr): Bool {
+    return switch (ex) {
+
+      case null |
+           { expr: EBreak } |
+           { expr: EConst(_) } |
+           { expr: EFunction(_, _) }:
+        false;
+
+      case { expr: EContinue } |
+           { expr: EThrow(_) }:
+        true;           
+
+      case { expr: EReturn(expr) }:
+        expr != null;
+
+      case { expr: EBlock(exs) }:
+        if (exs.length == 0) false else needReturn(exs[exs.length - 1]);
+
+      case { expr: EBinop(_, e1, e2) } |
+           { expr: EIf(_, e1, e2) }:
+        needReturn(e1) && needReturn(e2);
+
+      case { expr: ETernary(e1, e2, e3) }:
+        Util.all([e1, e2, e3].map(needReturn));
+
+      case { expr: ESwitch(_, cases, def) }:
+        Util.all(cases.map(function (c) return needReturn(c.expr))) && needReturn(def);
+
+      case { expr: EVars(decls) }:
+        Util.all(decls.map(function(d) return needReturn(d.expr)));
+
+      case { expr: EObjectDecl(decls) }:
+        Util.all(decls.map(function(d) return needReturn(d.expr)));
+
+      case { expr: ENew(_, exs) } |
+           { expr: ECall(_, exs) } |
+           { expr: EArrayDecl(exs) }:
+        exs.length > 0 && Util.all(exs.map(needReturn));
+
+      case { expr: EFor(_, expr) } |
+           { expr: EWhile(_, expr, _) } |
+           { expr: ECast(expr, _) } |
+           { expr: ECheckType(expr, _) } |
+           { expr: EParenthesis(expr) } |
+           { expr: EArray(_, expr) } |
+           { expr: EField(expr, _) } |
+           { expr: EUnop(_, _, expr) } |
+           { expr: EDisplay(expr, _) } |
+           { expr: EMeta(_, expr) }:
+        needReturn(expr);
+
+      case { expr: ETry(tried, catches) }:
+        needReturn(tried) && Util.all(catches.map(catchNeedsReturn));
+
+      default: 
+        false; // dunno
+
+    };
+  }
+
+  private static function catchNeedsReturn(c: Catch) {
+    if (ComplexTypeTools.toString(c.type) == "scopes.Protect.ControlException")
+      return true;
+    else
+      return needReturn(c.expr);
   }
 #end
 
@@ -189,4 +273,8 @@ enum ControlException {
   ReturnValue(value: Dynamic);
   Break;
   Continue;
+}
+
+enum ProtectException {
+  ShouldNotReach;
 }

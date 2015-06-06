@@ -8,10 +8,12 @@ class Util {
 
   private static var genSymCounter: Int = 1000;
 
-  public static function genSym(?base: String = "__net_parensoft_protect") {
+  public static var GENSYM_BASE(default, never) = "__scopes_gensym";
+
+  public static function genSym() {
     genSymCounter++;
 
-    return '${base}_${genSymCounter}';
+    return '${GENSYM_BASE}_${genSymCounter}';
   }
   
 #if macro
@@ -21,12 +23,18 @@ class Util {
     else if (Context.defined("php")) "php";
     else null;
 
-    public static function rethrow(e: String) 
-      return if (platform != null) 
-        macro $i{platform}.Lib.rethrow($i{e});
-      else 
-        macro throw $i{e};
+  public static function rethrow(e: String) {
+    return if (platform != null) 
+      macro $i{platform}.Lib.rethrow($i{e});
+    else 
+      macro throw $i{e};
+  }
 #end
+
+  public static function all(vals: Array<Bool>): Bool {
+    for (val in vals) if (val != true) return false;
+    return true;
+  }
 
 }
 

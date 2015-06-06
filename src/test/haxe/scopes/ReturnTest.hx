@@ -39,7 +39,7 @@ class ReturnTest extends BuddySuite {
           },{
             control.push("clean");
           });
-          
+
           throw "unexpected";
         }
 
@@ -72,6 +72,23 @@ class ReturnTest extends BuddySuite {
         var fun = function() {
           Protect.protect({
             try return 1
+            catch (e: Dynamic) {}
+          }, {
+            // nothing
+          });
+
+          return 7;
+        }
+
+        fun().should.be(1);
+      });
+
+      it("should handle conditional return in try/catch(Dynamic) in prot", {
+        var control = [];
+
+        var fun = function() {
+          Protect.protect({
+            try if (true) return 1
             catch (e: Dynamic) {}
           }, {
             // nothing
@@ -112,7 +129,7 @@ class ReturnTest extends BuddySuite {
             control.push(Std.string(ind) + "a");
           });
 
-          
+
         }
 
         control.should.containExactly(["0a", "1", "1a", "2a"]);

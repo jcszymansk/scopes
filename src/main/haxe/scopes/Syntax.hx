@@ -26,12 +26,12 @@ class Syntax {
   }
 
   static function transform(ex: Expr) 
-    switch (ex) {
+    if (ex != null) switch (ex) {
       case macro @protect { protected: $prot, cleanup: $clean }:
         transform(prot); transform(clean);
         ex.expr = (macro scopes.Protect.protect($prot, $clean)).expr;
       case { expr: EMeta({ name: "quell", params: excs }, expr) }: {
-        transform(expr);
+        expr.iter(transform);
         //FIXME indentation gone wild.
         ex.expr =
           ECall({ expr:
