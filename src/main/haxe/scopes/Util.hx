@@ -29,6 +29,18 @@ class Util {
     else 
       macro throw $i{e};
   }
+
+  public static function expandMacros(expr: Expr): Expr {
+    if (expr == null) return null;
+
+    var expanded = Context.getTypedExpr(Context.typeExpr(macro { $expr; 1; }));
+
+    return switch (expanded) {
+      case { expr: EBlock([ { expr: extracted }, _ ])}:
+        { expr: extracted, pos: expr.pos };
+      default: throw "should never happen. did it?";
+    }
+  }
 #end
 
   public static function all(vals: Array<Bool>): Bool {
@@ -38,18 +50,3 @@ class Util {
 
 }
 
-#if macro
-abstract TypedExpression(TypedExpr) from TypedExpr to TypedExpr {
-  
-  public function new(aThis: TypedExpr) this = aThis;
-
-  @:from public static function fromExpr(anExpr: Expr)
-    return new TypedExpression(Context.typeExpr(anExpr));
-
-  @:to public function toExpr()
-    return Context.getTypedExpr(this);
-
-  public function getType()
-    return this.t;
-}
-#end

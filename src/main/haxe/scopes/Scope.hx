@@ -94,16 +94,15 @@ class Scope {
     var counter = genSym();
     var excName = genSym();
 
-    var typed: Util.TypedExpression = ({ expr: (macro {
+    var expanded = expandMacros({ expr: (macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
 
       $b{ret};
-    }).expr, pos: mpos} :Expr);
+    }).expr, pos: mpos});
 
-    var block;
-    switch((typed: Expr).expr) {
+    var block = switch(expanded.expr) {
       case EBlock([_, { expr: EBlock(unmacroed), pos: bpos }]):
-        block = { expr: EBlock(unmacroed), pos: bpos };
+        { expr: EBlock(unmacroed), pos: bpos };
       default: throw "internal error";
     }
 
@@ -123,7 +122,7 @@ class Scope {
         }
 
 
-      }, statusName, typed.getType(), excName)}
+      }, statusName, excName)}
 
     }, arrName);
 

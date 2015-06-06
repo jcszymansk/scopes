@@ -10,12 +10,7 @@ class Protect {
 
   public static macro function protect(protected: Expr, cleanup: Expr) {
 
-    var unmacroed = Context.getTypedExpr(Context.typeExpr(macro { $protected; 1; }));
-    var extracted = switch(unmacroed) {
-      case { expr: EBlock([{ expr: EBlock(el), pos: mpos }, _]) }: { expr: EBlock(el), pos: mpos };
-      default: throw "internal error";
-    }
-    return protectBuild(extracted, cleanup, genSym(), null, genSym());
+    return protectBuild(expandMacros(protected), cleanup, genSym(), genSym());
   }
 
   public static macro function quell(quelled: Expr, exceptions: Array<Expr>) {
@@ -39,7 +34,7 @@ class Protect {
 
   @:allow(scopes.Scope)
 #if macro
-  private static function protectBuild(protected: Expr, cleanup: Expr, statusName: String, type: Type, excName: String) {
+  private static function protectBuild(protected: Expr, cleanup: Expr, statusName: String, excName: String) {
     var flags = new TransformFlags();
     var transformed = transform(protected, flags);
 
