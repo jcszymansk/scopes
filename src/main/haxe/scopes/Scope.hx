@@ -20,8 +20,7 @@ class Scope {
       case { expr: EBlock(el) }: {
         transform(el, ex.pos);
       }
-      case macro scopes.Scope.withExits($el): doWithExits(el);
-      default: Context.error("Scope.withExits requires a block", ex.pos);
+      default: ex.map(doWithExits);
     }
     
   }
@@ -136,7 +135,7 @@ class Scope {
     return switch(ex.expr) {
       case EConst(CIdent(name)): '${name}.${n}';
       case EField(exx, nn): recParseDotted(exx, '${nn}.${n}');
-      default: Context.fatalError('use @quell(type1, type2, type2) expr', ex.pos);
+      default: Context.fatalError('cannot unparse type name, got ${n} so far', ex.pos);
  
     };
   }
