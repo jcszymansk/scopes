@@ -10,11 +10,13 @@ A _primitive_ ```try```/```finally```-like syntax is available as well.
 
 The library is based on expression macros, and these may be used explicitly. A nice looking build macro based syntax is also provided.
 
-**This library is feature complete, no further development (apart from bugfixes) is planned.**
+**This library is feature complete, no further development (apart from bugfixes) is planned.** Probably.
 
 ## Usage:
 
 ## Expression macros:
+
+The macros in this package rewrite processed expressions quite heavily and forces expansion of any macros contained therein; it is not guaranteed that any macro call will be expanded exactly once. This is to ensure that other macros' expansions may contain functions, ```return```s and these will be handled correctly, as if written by hand.
 
 ### Scope exits:
 
@@ -29,6 +31,9 @@ Scope.withExits({
     @scope(true) expr3;
     @scope expr4;
     expr5;
+    @scope(String) expr6;
+    @scope(@as(s) String) proc1(s);
+    expr7;
     });
 
 ```
@@ -42,6 +47,8 @@ upon leaving the scope instead. The ```@scope``` meta accepts the following argu
   ```break``` and ```continue```
 * ```false``` for expressions to be executed when the block exits with an exception
 * ```null``` for expressions to be executed everytime the block exits
+* type identifier for expressions to be executed when the block exits with an exception of the identified type, checked by ```Std.is()```
+* ```@as(variable)``` with type identified, so the exception is available inside the scope guard expression bound to ```variable```
 
 ```@scope``` without arguments is equal to ```@scope(null)```.
 
@@ -52,7 +59,7 @@ If any throws an exception, the subsequent
 ones **will not** be executed.
 
 If uppercase ```@SCOPE``` is used instead of ```@scope```, exceptions from thus annotated expression
-will be silently dropped.
+will be silently dropped (thus allowing subsequent exceptions' execution).
 
 Any scope exit expression must be so declared directly inside a block, that is not in an ```if``` or whatever
 else.
@@ -85,6 +92,22 @@ if a variable is annotated with ```@closes("aMethod")```, its ```aMethod()``` fu
 
 If ```@CLOSES``` is used instead of ```@closes```, any exceptions thrown by the call will be silently dropped.
 
+### Exception suppression (aka quelling)
+
+Any and all exceptions may be suppressed using ```Protect.quell(expr, exceptions)```
+
+```
+#!haxe
+import scopes.Protect;
+
+Protect.quell({ expr1; expr2; });                      // suppresses all exceptions
+
+Protect.quell({ expr1; expr2; }, String, haxe.io.Eof); // suppresses exceptions of types
+                                                       // String and haxe.io.Eof
+```
+
+The types specified may be imported and specified by the type name, or otherwise specified by full path. This macro is expanded into a ```try``` block with an empty ```catch``` clause for each listed exception.
+
 ### Primitive protected/cleanup expressions:
 
 ```
@@ -112,6 +135,8 @@ The value of the ```Protect.protect(PROT, CLEAN)``` expression is the value of t
 To use the build macros the class _must_ implement the ```scopes.ScopeSyntax```
 interface or be annotated with ```@:build(scopes.Syntax.build())```
 
+All the build macros expand into expression macros to do the work, hence they should not be in conflict with other build macros.
+
 ### Scope exit, autoclose variables:
 
 No difference from the expression macro, the block doesn't need any metadata, if any annotated 
@@ -133,6 +158,21 @@ class Example {
     }
 ```
 
+### Expression suppression:
+
+Just annotate the expression you want to suppress exceptions thrown by with the ```@quell``` metadata:
+
+```
+#!haxe
+@:build(scopes.Syntax.build())
+class Example {
+    private function doSomething() {
+        @quell { expr1; expr2; }                      // suppresses all exceptions
+
+        @quell(String, haxe.io.Eof) { expr1; expr2; } // suppresses exceptions of types
+                                                      // String and haxe.io.Eof        
+    }
+```
 
 ### Basic unwind/protect:
 
@@ -149,6 +189,11 @@ As above, ```CLEAN``` is executed always whenever ```PROT``` exits.
 
 
 ## Changes:
+06/06/15: 1.1.0:
+
+* Fix several bugs.
+* Add ```@quell``` and ```@scope``` by type
+
 12/26/14: 1.0.0:
 
 * Remove ```@protect/@clean``` syntax
@@ -171,4 +216,4 @@ inside the protected block.
 
 ### License: MIT
 
-(C) Parensoft.NET 2014
+(C) Parensoft.NET 2015
