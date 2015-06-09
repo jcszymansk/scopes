@@ -14,7 +14,7 @@ The library is based on expression macros, and these may be used explicitly. A n
 
 ### Limitations:
 
-This code uses exceptions of type ```scopes.Scope.ControlException``` internally. The user code **may never** either throw or catch exceptions of this type directly (catching ```Dynamic``` is ok).
+This code uses exceptions of type ```scopes.Protect.ControlException``` internally. The user code **may never** either throw or catch exceptions of this type directly (catching ```Dynamic``` is ok).
 
 ## Expression macros:
 
