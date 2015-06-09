@@ -10,9 +10,11 @@ A _primitive_ ```try```/```finally```-like syntax is available as well.
 
 The library is based on expression macros, and these may be used explicitly. A nice looking build macro based syntax is also provided.
 
-**This library is feature complete, no further development (apart from bugfixes) is planned.** Probably.
-
 ## Usage:
+
+### Limitations:
+
+This code uses exceptions of type ```scopes.Scope.ControlException``` internally. The user code **may never** either throw or catch exceptions of this type directly (catching ```Dynamic``` is ok).
 
 ## Expression macros:
 
