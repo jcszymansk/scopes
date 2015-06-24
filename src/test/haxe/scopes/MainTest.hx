@@ -4,7 +4,6 @@ import buddy.*;
 import scopes.Protect;
 using buddy.Should;
 
-@:build(buddy.GenerateMain.build(["scopes"]))
 class MainTest extends BuddySuite {
 
   public function new() {

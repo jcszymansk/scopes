@@ -5,6 +5,6 @@
 
 -lib buddy
 
--main scopes.MainTest
+-main scopes.Main
 
 -cmd mono bin/bin/MainTest.exe

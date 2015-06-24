@@ -3,7 +3,7 @@ package scopes;
 import buddy.*;
 using buddy.Should;
 
-class SyntaxText extends BuddySuite implements ScopeSyntax {
+class SyntaxTest extends BuddySuite implements ScopeSyntax {
 
   public function new() {
 
