@@ -25,9 +25,9 @@ class Util {
 
   public static function rethrow(e: String) {
     return if (platform != null) 
-      macro $i{platform}.Lib.rethrow($i{e});
+      macro @:pos(Context.currentPos()) $i{platform}.Lib.rethrow($i{e});
     else 
-      macro throw $i{e};
+      macro @:pos(Context.currentPos()) throw $i{e};
   }
 
   public static function expandMacros(expr: Expr): Expr {
