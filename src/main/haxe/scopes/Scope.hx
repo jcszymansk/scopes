@@ -122,11 +122,16 @@ class Scope {
       $b{ret};
     }).expr, pos: mpos});
 
+    var extracted = switch(typed.expr) {
+      case TBlock([_, ex]): ex;
+      default: throw "internal error " + typed.expr;
+    };
+
     
     return checkReturns(macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
 
-      ${scopes.Protect.protectBuild(typed, macro {
+      ${scopes.Protect.protectBuild(extracted, macro {
 
         for ($i{counter} in $i{arrName}) {
           if (($i{counter}.fail == null) ||
