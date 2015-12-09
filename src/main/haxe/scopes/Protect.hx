@@ -36,7 +36,7 @@ using haxe.macro.TypeTools;
 class Protect {
 
   public static macro function protect(protected: Expr, cleanup: Expr) {
-    return protectBuild(Context.typeExpr(protected), cleanup, genSym(), genSym());
+    return protectBuild(typeExprSafer(protected), cleanup, genSym(), genSym());
   }
 
   public static macro function quell(quelled: Expr, exceptions: Array<Expr>) {

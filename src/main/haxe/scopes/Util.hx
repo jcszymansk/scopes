@@ -64,6 +64,17 @@ class Util {
       default: throw "should never happen. did it?";
     }
   }
+
+  public static function typeExprSafer(expr: Expr): TypedExpr {
+    if (expr == null) return null;
+
+    var typed = Context.typeExpr(macro { $expr; 1; });
+
+    return switch(typed) {
+      case { expr: TBlock([ tp, _ ])}: tp;
+      default: throw "should never happen, did it?";
+    };
+  }
 #end
 
   public static function all(vals: Array<Bool>): Bool {
