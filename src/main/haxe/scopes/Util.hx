@@ -53,18 +53,6 @@ class Util {
       macro @:pos(Context.currentPos()) throw $i{e};
   }
 
-  public static function expandMacros(expr: Expr): Expr {
-    if (expr == null) return null;
-
-    var expanded = Context.getTypedExpr(Context.typeExpr(macro { $expr; 1; }));
-
-    return switch (expanded) {
-      case { expr: EBlock([ { expr: extracted }, _ ])}:
-        { expr: extracted, pos: expr.pos };
-      default: throw "should never happen. did it?";
-    }
-  }
-
   public static function typeExprSafer(expr: Expr): TypedExpr {
     if (expr == null) return null;
 
