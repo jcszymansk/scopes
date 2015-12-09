@@ -116,23 +116,17 @@ class Scope {
     var counter = genSym();
     var excName = genSym();
 
-    var expanded = expandMacros({ expr: (macro {
+    var typed = Context.typeExpr({ expr: (macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
 
       $b{ret};
     }).expr, pos: mpos});
 
-    var block = switch(expanded.expr) {
-      case EBlock([_, { expr: EBlock(unmacroed), pos: bpos }]):
-        { expr: EBlock(unmacroed), pos: bpos };
-      default: throw "internal error";
-    }
-
     
     return checkReturns(macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
 
-      ${scopes.Protect.protectBuild(macro $block, macro {
+      ${scopes.Protect.protectBuild(typed, macro {
 
         for ($i{counter} in $i{arrName}) {
           if (($i{counter}.fail == null) ||

@@ -25,15 +25,18 @@ package scopes;
 
 import haxe.macro.*;
 import haxe.macro.Expr;
+import haxe.macro.Type;
+
 import scopes.Util.*;
 
 using haxe.macro.ExprTools;
+using haxe.macro.TypedExprTools;
+using haxe.macro.TypeTools;
 
 class Protect {
 
   public static macro function protect(protected: Expr, cleanup: Expr) {
-
-    return protectBuild(expandMacros(protected), cleanup, genSym(), genSym());
+    return protectBuild(Context.typeExpr(protected), cleanup, genSym(), genSym());
   }
 
   public static macro function quell(quelled: Expr, exceptions: Array<Expr>) {
@@ -57,9 +60,9 @@ class Protect {
 
   @:allow(scopes.Scope)
 #if macro
-  private static function protectBuild(protected: Expr, cleanup: Expr, statusName: String, excName: String) {
+  private static function protectBuild(protected: TypedExpr, cleanup: Expr, statusName: String, excName: String): Expr {
     var flags = new TransformFlags();
-    var transformed = transform(protected, flags);
+    var transformed = Context.storeTypedExpr(transform(protected, flags));
 
 //    var excName = genSym();
     var protVName = genSym();
@@ -71,7 +74,7 @@ class Protect {
     var defvar = macro null;
 
     try {
-      var stype = Context.typeof(protected);
+      var stype = protected.t;
 
       defvar = switch(stype) {
         case TAbstract(t, _):
@@ -84,7 +87,7 @@ class Protect {
           }
         default: macro null;
 
-      }
+      };
     }
     catch (_:Dynamic) {}
 
@@ -139,60 +142,75 @@ class Protect {
     throw "Must be called from a macro";
 #end
 
-  private static function transform(expr: Expr, flags: TransformFlags, ?inLoop = false): Expr {
+#if macro
+  private static function transform(expr: TypedExpr, flags: TransformFlags, ?inLoop = false): TypedExpr {
     return switch(expr) {
-      case macro break if (!inLoop):
+      case { expr: TBreak } if (!inLoop):
         flags.breaks = true;
-        macro throw scopes.Protect.ControlException.Break;
-      case macro continue if (!inLoop):
+        Context.typeExpr(macro @:pos(expr.pos) throw scopes.Protect.ControlException.Break);
+      case { expr: TContinue } if (!inLoop):
         flags.continues = true;
-        macro throw scopes.Protect.ControlException.Continue;
-      case macro return:
+        Context.typeExpr(macro @:pos(expr.pos) throw scopes.Protect.ControlException.Continue);
+      case { expr: TReturn(null) }:
         flags.returnsVoid = true;
-        macro throw scopes.Protect.ControlException.ReturnVoid;
-      case macro return $val:
+        Context.typeExpr(macro @:pos(expr.pos) throw scopes.Protect.ControlException.ReturnVoid);
+      case { expr: TReturn(val) }:
+        var tval = Context.storeTypedExpr(val);
         flags.returnsValue = true;
-        macro throw scopes.Protect.ControlException.ReturnValue($val);
-      case { expr: EFunction(_, _) }:
+        Context.typeExpr(macro @:pos(expr.pos) throw scopes.Protect.ControlException.ReturnValue($tval));
+      case { expr: TFunction(_) }:
         expr;
-      case { expr: EFor(it, body) }:
-        { pos: expr.pos, expr: EFor(it, transform(body, flags, true)) };
-      case { expr: EWhile(ecnd, exp, norm) }:
-        { pos: expr.pos, expr: EWhile(ecnd, transform(exp, flags, true), norm) };
-      case { expr: ETry(tryexp, catches) }: {
-
-        if (catches.length > 0 && 
-            ComplexTypeTools.toString(catches[0].type) == "scopes.Protect.ControlException")
+      case { expr: TFor(vr, it, body) }:
+        { pos: expr.pos,
+          t: expr.t, 
+          expr: TFor(vr, 
+                    it, 
+                    transform(body, flags, true)) };
+      case { expr: TWhile(ecnd, exp, norm) }:
+        { pos: expr.pos, 
+          t: expr.t,
+          expr: TWhile(ecnd, 
+              transform(exp, flags, true), norm) };
+      case { expr: TTry(tryexp, catches) }: {
+        if (catches.length > 0 && isControlException(catches[0].v.t))
+            //ComplexTypeTools.toString(catches[0].type) == "scopes.Protect.ControlException")
           expr;
         else {
 
+          var trytr = transform(tryexp, flags, inLoop);
+
           var ncatches = catches.map(function(cExp) {
             return {
-              name : cExp.name,
-              type : cExp.type, 
+              v: cExp.v, 
               expr: transform(cExp.expr, flags, inLoop) };
           });
 
           var excName = genSym();
 
-          ncatches.unshift({
-            name: excName,
-            type: macro :scopes.Protect.ControlException,
-            expr: macro throw $i{excName}
-          });
+          var typedtry = Context.typeExpr(
+            macro try { throw false; } catch ($excName: scopes.Protect.ControlException) { throw $i{excName}; }
+            );
 
-          { pos: expr.pos, expr: ETry(transform(tryexp, flags, inLoop), ncatches) };
+          var ncatch = switch(typedtry) {
+            case { expr: TTry(_, [ nc ])}: nc;
+            default: throw "impossible?" + typedtry;
+          };
+
+
+
+          ncatches.unshift(ncatch);
+
+          { pos: expr.pos, t: expr.t, expr: TTry(trytr, ncatches) };
 
         }
       }
-      default: 
+      default:
         var trans = transform.bind(_, flags, inLoop);
         expr.map(trans);
 
     }
   }
 
-#if macro
   private static function recParseDotted(ex: Expr, n: String) {
     return switch(ex.expr) {
       case EConst(CIdent(name)): '${name}.${n}';
@@ -202,61 +220,67 @@ class Protect {
     };
   }
 
+  private static function isControlException(t: Type) {
+    return switch(t) {
+      case TEnum(_.toString() => "scopes.ControlException", _): true;
+      default: false;
+    };
+  }
+
 
   // check if all branches of ex end with return or throw
-  private static function needReturn(ex: Expr): Bool {
+  private static function needReturn(ex: TypedExpr): Bool {
     return switch (ex) {
 
       case null |
-           { expr: EBreak } |
-           { expr: EConst(_) } |
-           { expr: EFunction(_, _) }:
+           { expr: TBreak } |
+           { expr: TConst(_) } |
+           { expr: TFunction(_) }:
         false;
 
-      case { expr: EContinue } |
-           { expr: EThrow(_) }:
+      case { expr: TContinue } |
+           { expr: TThrow(_) }:
         true;           
 
-      case { expr: EReturn(expr) }:
+      case { expr: TReturn(expr) }:
         expr != null;
 
-      case { expr: EBlock(exs) }:
+      case { expr: TBlock(exs) }:
         if (exs.length == 0) false else needReturn(exs[exs.length - 1]);
 
-      case { expr: EBinop(_, e1, e2) } |
-           { expr: EIf(_, e1, e2) }:
+      case { expr: TBinop(_, e1, e2) } |
+           { expr: TFor(_, e1, e2) } |
+           { expr: TArray(e1, e2) } |
+           { expr: TWhile(e1, e2, _) }:
         needReturn(e1) && needReturn(e2);
 
-      case { expr: ETernary(e1, e2, e3) }:
+      case { expr: TCall(e1, e2) }:
+        needReturn(e1) || ( e2.length > 0 && Util.all(e2.map(needReturn)));
+
+      case { expr: TIf(e1, e2, e3) }:       
         Util.all([e1, e2, e3].map(needReturn));
 
-      case { expr: ESwitch(_, cases, def) }:
-        Util.all(cases.map(function (c) return needReturn(c.expr))) && needReturn(def);
+      case { expr: TSwitch(e1, cases, def) }:
+        needReturn(e1) && Util.all(cases.map(function (c) return needReturn(c.expr))) && needReturn(def);
 
-      case { expr: EVars(decls) }:
+      case { expr: TVar(_, ex) }:
+        needReturn(ex);
+
+      case { expr: TObjectDecl(decls) }:
         Util.all(decls.map(function(d) return needReturn(d.expr)));
 
-      case { expr: EObjectDecl(decls) }:
-        Util.all(decls.map(function(d) return needReturn(d.expr)));
-
-      case { expr: ENew(_, exs) } |
-           { expr: ECall(_, exs) } |
-           { expr: EArrayDecl(exs) }:
+      case { expr: TNew(_, _, exs) } |
+           { expr: TArrayDecl(exs) }:
         exs.length > 0 && Util.all(exs.map(needReturn));
 
-      case { expr: EFor(_, expr) } |
-           { expr: EWhile(_, expr, _) } |
-           { expr: ECast(expr, _) } |
-           { expr: ECheckType(expr, _) } |
-           { expr: EParenthesis(expr) } |
-           { expr: EArray(_, expr) } |
-           { expr: EField(expr, _) } |
-           { expr: EUnop(_, _, expr) } |
-           { expr: EDisplay(expr, _) } |
-           { expr: EMeta(_, expr) }:
+      case { expr: TCast(expr, _) } |
+           { expr: TParenthesis(expr) } |
+           { expr: TField(expr, _) } |
+           { expr: TUnop(_, _, expr) } |
+           { expr: TMeta(_, expr) }:
         needReturn(expr);
 
-      case { expr: ETry(tried, catches) }:
+      case { expr: TTry(tried, catches) }:
         needReturn(tried) && Util.all(catches.map(catchNeedsReturn));
 
       default: 
@@ -265,8 +289,8 @@ class Protect {
     };
   }
 
-  private static function catchNeedsReturn(c: Catch) {
-    if (ComplexTypeTools.toString(c.type) == "scopes.Protect.ControlException")
+  private static function catchNeedsReturn(c: {v: TVar, expr: TypedExpr}) {
+    if (isControlException(c.v.t))
       return true;
     else
       return needReturn(c.expr);
