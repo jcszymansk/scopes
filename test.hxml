@@ -7,4 +7,4 @@
 
 -main scopes.Main
 
--cmd mono bin/bin/MainTest.exe
+-cmd mono bin/bin/Main.exe

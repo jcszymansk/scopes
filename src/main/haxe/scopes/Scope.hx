@@ -1,3 +1,26 @@
+/****
+* Copyright (c) 2015 Parensoft.NET
+* 
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions:
+* 
+* The above copyright notice and this permission notice shall be included in
+* all copies or substantial portions of the Software.
+* 
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+* THE SOFTWARE.
+* 
+****/
+
 package scopes;
 
 import haxe.macro.Expr;
@@ -93,23 +116,22 @@ class Scope {
     var counter = genSym();
     var excName = genSym();
 
-    var expanded = expandMacros({ expr: (macro {
+    var typed = Context.typeExpr({ expr: (macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
 
       $b{ret};
     }).expr, pos: mpos});
 
-    var block = switch(expanded.expr) {
-      case EBlock([_, { expr: EBlock(unmacroed), pos: bpos }]):
-        { expr: EBlock(unmacroed), pos: bpos };
-      default: throw "internal error";
-    }
+    var extracted = switch(typed.expr) {
+      case TBlock([_, ex]): ex;
+      default: throw "internal error " + typed.expr;
+    };
 
     
     return checkReturns(macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
 
-      ${scopes.Protect.protectBuild(macro $block, macro {
+      ${scopes.Protect.protectBuild(extracted, macro {
 
         for ($i{counter} in $i{arrName}) {
           if (($i{counter}.fail == null) ||
