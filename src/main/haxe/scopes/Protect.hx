@@ -46,7 +46,7 @@ class Protect {
       var cc = [];
       for (tt in exceptions) {
         switch (tt.expr) {
-          case EConst(CIdent(t)): cc.push({ type: Context.toComplexType(Context.getType(t)), name: genSym(), expr: macro {} });
+          case EConst(CIdent(t)): cc.push({ type: Context.toComplexType(Context.getType(t)), name: genSym(), expr: macro { scopes.Util.thisIsVoid(); } });
           case EField(e, n): {
             cc.push({ type: Context.toComplexType(Context.getType(recParseDotted(e, n))), name: genSym(), expr: macro{} });
           }

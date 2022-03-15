@@ -70,5 +70,7 @@ class Util {
     return true;
   }
 
+  public inline static function thisIsVoid(): Void {}
+
 }
 
