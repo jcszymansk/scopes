@@ -1,16 +1,16 @@
 /****
 * Copyright (c) 2015 Parensoft.NET
-* 
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 * copies of the Software, and to permit persons to whom the Software is
 * furnished to do so, subject to the following conditions:
-* 
+*
 * The above copyright notice and this permission notice shall be included in
 * all copies or substantial portions of the Software.
-* 
+*
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -18,7 +18,7 @@
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 * THE SOFTWARE.
-* 
+*
 ****/
 
 package scopes;
@@ -45,7 +45,7 @@ class Scope {
       }
       default: ex.map(doWithExits);
     }
-    
+
   }
 
   private static function transform(el: Array<Expr>, mpos: Position) {
@@ -63,7 +63,7 @@ class Scope {
       } ] }, expr ) }:
         ret.push(macro $i{arrName}.unshift({ fail: $when,
                      run: ${{expr: EFunction(null, { ret: (macro :Void), expr: expr, args: [{ name: name, type: null }] } ),
-                             pos: mpos }}})); 
+                             pos: mpos }}}));
       case macro @scope($when) $expr:
         ret.push(macro $i{arrName}.unshift({ fail: $when, run: function($ignName) $expr }));
       case macro @SCOPE $expr:
@@ -76,7 +76,7 @@ class Scope {
                      run: ${{expr: EFunction(null, { ret: (macro :Void),
                                                expr: (macro try $expr catch(_:Dynamic) {}),
                                                args: [{ name: name, type: null }] } ),
-                             pos: mpos }}})); 
+                             pos: mpos }}}));
       case macro @SCOPE($when) $expr:
         ret.push(macro $i{arrName}.unshift(
               { fail: $when, run: function($ignName) try $expr catch (_: Dynamic) {} }));
@@ -127,7 +127,7 @@ class Scope {
       default: throw "internal error " + typed.expr;
     };
 
-    
+
     return checkReturns(macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
 
@@ -158,7 +158,7 @@ class Scope {
       case EConst(CIdent(name)): '${name}.${n}';
       case EField(exx, nn): recParseDotted(exx, '${nn}.${n}');
       default: Context.fatalError('cannot unparse type name, got ${n} so far', ex.pos);
- 
+
     };
   }
 
@@ -167,7 +167,7 @@ class Scope {
       case macro $arr.unshift({ fail: $when, run: ${{ expr: EFunction(_, fun) }} }): checkReturnsSub(fun.expr); ex;
       default: ex.map(checkReturns.bind(_, arr));
     }
-    
+
   }
 
   private static function checkReturnsSub(ex: Expr) {
@@ -179,7 +179,7 @@ class Scope {
   }
 
 #else
-  private static function transform(el: Array<Expr>) 
+  private static function transform(el: Array<Expr>)
     throw "Only for macros";
 #end
 
