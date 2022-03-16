@@ -40,10 +40,10 @@ class SyntaxTest extends BuddySuite implements ScopeSyntax {
           }
         }
         catch (e: String) { if ("out!" != e) control.push("wrong"); }
-        
+
         control.should.containExactly(["inner", "outer"]);
       });
-/* FIXME H4
+
       it("should observe scope syntax", {
         var control = [];
 
@@ -54,7 +54,7 @@ class SyntaxTest extends BuddySuite implements ScopeSyntax {
 
         control.should.containExactly(["one", "two"]);
       });
-*/
+
     });
   }
 }
