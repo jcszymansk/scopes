@@ -23,6 +23,7 @@
 
 package scopes;
 
+import haxe.macro.TypedExprTools;
 import haxe.macro.Expr;
 import haxe.macro.Context;
 import scopes.Util.*;
@@ -116,39 +117,29 @@ class Scope {
     var counter = genSym();
     var excName = genSym();
 
-    var typed = Context.typeExpr({ expr: (macro {
+    var bindings = { expr: (macro {
       var $arrName: Array<scopes.Scope.ExitFunc> = [];
+      var $statusName: Null<Bool> = null;
 
-      $b{ret};
-    }).expr, pos: mpos});
+    }).expr, pos: mpos};
 
-    var extracted = switch(typed.expr) {
-      case TBlock([_, ex]): ex;
-      default: throw "internal error " + typed.expr;
-    };
+    var retx = scopes.Protect.protectBuild(bindings, ret, macro function ($excName) {
 
-
-    return checkReturns(macro {
-      var $arrName: Array<scopes.Scope.ExitFunc> = [];
-
-      ${scopes.Protect.protectBuild(extracted, macro {
-
-        for ($i{counter} in $i{arrName}) {
-          if (($i{counter}.fail == null) ||
-                 ($i{counter}.fail == $i{statusName}))
-            ($i{counter}.run)(null);
-          else if (!Std.is($i{counter}.fail, Bool) && Std.is($i{excName}, $i{counter}.fail)) {
-            ($i{counter}.run)($i{excName});
-          }
+      for ($i{counter} in $i{arrName}) {
+        if (($i{counter}.fail == null) ||
+                ($i{counter}.fail == $i{statusName}))
+          ($i{counter}.run)(null);
+        else if (!Std.is($i{counter}.fail, Bool) && Std.is($i{excName}, $i{counter}.fail)) {
+          ($i{counter}.run)($i{excName});
         }
+      }
 
 
-      }, statusName, excName)}
+    });
 
-    }, arrName);
+    Sys.println(TypedExprTools.toString(Context.typeExpr(retx), false));
 
-
-
+    return checkReturns(retx, arrName);
 
     //return prep;
   }
