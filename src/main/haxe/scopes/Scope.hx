@@ -139,9 +139,11 @@ class Scope {
 
     //Sys.println(TypedExprTools.toString(Context.typeExpr(retx), true));
 
-    return checkReturns(retx, arrName);
+    var detyped = Context.getTypedExpr(Context.typeExpr(retx));
 
-    //return prep;
+    checkReturns(detyped, arrName);
+
+    return retx;
   }
 
   private static function recParseDotted(ex: Expr, n: String) {
