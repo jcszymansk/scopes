@@ -88,7 +88,7 @@ class ReturnTest extends BuddySuite {
 
         var fun = function() {
           Protect.protect({
-            try if (true) return 1
+            try if (true) return 1 else return 0
             catch (e: Dynamic) {}
           }, {
             // nothing
@@ -110,7 +110,7 @@ class ReturnTest extends BuddySuite {
           Protect.protect({
             if (ind == 2) break;
             control.push(Std.string(ind));
-          }, 
+          },
           {
             control.push(Std.string(ind) + "a");
           });
