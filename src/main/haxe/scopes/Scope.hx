@@ -129,7 +129,7 @@ class Scope {
         if (($i{counter}.fail == null) ||
                 ($i{counter}.fail == $i{statusName}))
           ($i{counter}.run)(null);
-        else if (!Std.is($i{counter}.fail, Bool) && Std.is($i{excName}, $i{counter}.fail)) {
+        else if (!Std.isOfType($i{counter}.fail, Bool) && Std.isOfType($i{excName}, $i{counter}.fail)) {
           ($i{counter}.run)($i{excName});
         }
       }
