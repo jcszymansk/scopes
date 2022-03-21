@@ -75,6 +75,8 @@ class Protect {
       case any: throw 'should never happen ' + TypedExprTools.toString(any);
     }
 
+    transform(pretyped, flags); // must pre-transform as well for flags
+
     var useReturn = Context.getExpectedType() == null && needReturn(pretyped);
 
     var isVoid = Context.getExpectedType() == null;
