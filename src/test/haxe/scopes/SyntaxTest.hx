@@ -40,7 +40,7 @@ class SyntaxTest extends BuddySuite implements ScopeSyntax {
           }
         }
         catch (e: String) { if ("out!" != e) control.push("wrong"); }
-        
+
         control.should.containExactly(["inner", "outer"]);
       });
 

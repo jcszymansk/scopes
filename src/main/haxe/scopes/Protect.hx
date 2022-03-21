@@ -1,16 +1,16 @@
 /****
 * Copyright (c) 2015 Parensoft.NET
-* 
+*
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
 * in the Software without restriction, including without limitation the rights
 * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 * copies of the Software, and to permit persons to whom the Software is
 * furnished to do so, subject to the following conditions:
-* 
+*
 * The above copyright notice and this permission notice shall be included in
 * all copies or substantial portions of the Software.
-* 
+*
 * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -18,7 +18,7 @@
 * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 * THE SOFTWARE.
-* 
+*
 ****/
 
 package scopes;
@@ -36,7 +36,7 @@ using haxe.macro.TypeTools;
 class Protect {
 
   public static macro function protect(protected: Expr, cleanup: Expr) {
-    return protectBuild(typeExprSafer(protected), cleanup, genSym(), genSym());
+    return protectBuild(macro {}, protected, macro $b{[cleanup]});
   }
 
   public static macro function quell(quelled: Expr, exceptions: Array<Expr>) {
@@ -60,21 +60,31 @@ class Protect {
 
   @:allow(scopes.Scope)
 #if macro
-  private static function protectBuild(protected: TypedExpr, cleanup: Expr, statusName: String, excName: String): Expr {
+  private static function protectBuild(bindings: Expr, protected: Expr, cleanup: Expr): Expr {
     var flags = new TransformFlags();
-    var transformed = Context.storeTypedExpr(transform(protected, flags));
 
-//    var excName = genSym();
+    var excName = genSym();
     var protVName = genSym();
 
-    var useReturn = Context.getExpectedType() == null && needReturn(protected);
+    var pretyped = switch(Context.typeExpr(macro {
+      $bindings;
+
+      $protected;
+    })) {
+      case { expr:TBlock(block) }: block[block.length - 1];
+      case any: throw 'should never happen ' + TypedExprTools.toString(any);
+    }
+
+    transform(pretyped, flags); // must pre-transform as well for flags
+
+    var useReturn = Context.getExpectedType() == null && needReturn(pretyped);
 
     var isVoid = Context.getExpectedType() == null;
 
     var defvar = macro null;
 
     try {
-      var stype = protected.t;
+      var stype = pretyped.t;
 
       defvar = switch(stype) {
         case TAbstract(t, _):
@@ -91,22 +101,25 @@ class Protect {
     }
     catch (_:Dynamic) {}
 
+    var realCleanup = switch(cleanup) {
+      case { expr: EFunction(_, _) }: macro ${cleanup}($i{excName});
+      default: cleanup;
+    }
 
     var retName = genSym();
 
     var retExpr = macro {
 
+      $e{bindings};
+
       var $retName = ${defvar};
 
       try {
-        ${ if(isVoid) macro $transformed else macro $i{retName} = $transformed };
+        ${ if(isVoid) macro $protected else macro $i{retName} = $protected };
         throw scopes.Protect.ControlException.PassedOK;
       }
       catch ($excName: scopes.Protect.ControlException) {
-
-        var $statusName: Null<Bool> = true;
-
-        $cleanup;
+        $e{realCleanup};
 
         switch ($i{excName}) {
           case scopes.Protect.ControlException.PassedOK:
@@ -117,15 +130,13 @@ class Protect {
             ${ flags.returnsValue ? macro { return $i{protVName}; } : macro {} };
           case scopes.Protect.ControlException.Break:
             ${ flags.breaks ? macro { break; } : macro {} };
-          case scopes.Protect.ControlException.Continue: 
+          case scopes.Protect.ControlException.Continue:
             ${ flags.continues ? macro { continue; } : macro {} };
 
         }
       }
       catch ($excName: Dynamic) {
-        var $statusName: Null<Bool> = false;
-
-        $cleanup;
+        $e{realCleanup};
 
         ${ rethrow(excName) };
       }
@@ -134,8 +145,25 @@ class Protect {
 
     };
 
+    var typedRet = Context.typeExpr(retExpr);
 
-    return retExpr;
+    var protExpTryBlock = switch(typedRet.expr) { // paranoid sanity checks ahead
+      case TBlock(tblock): switch (tblock[tblock.length - 2].expr) {
+        case TTry({ expr : TBlock(triesBlock) }, _): switch (triesBlock) {
+          case [_, _]: triesBlock;
+          default: throw "should not happend";
+        };
+        default: throw "should not happend";
+      }
+      default: throw "should not happend";
+    };
+
+    switch (protExpTryBlock[0]) {
+      case { expr: TBinop(OpAssign, rt, prot) }: protExpTryBlock[0].expr = TBinop(OpAssign, rt, transform(prot, flags));
+      case prot: protExpTryBlock[0].expr = transform(prot, flags).expr;
+    }
+
+    return Context.storeTypedExpr(typedRet);
   }
 #else
   private static function protectBuild(protected: Expr, cleanup: Expr, statusName: String)
@@ -162,14 +190,14 @@ class Protect {
         expr;
       case { expr: TFor(vr, it, body) }:
         { pos: expr.pos,
-          t: expr.t, 
-          expr: TFor(vr, 
-                    it, 
+          t: expr.t,
+          expr: TFor(vr,
+                    it,
                     transform(body, flags, true)) };
       case { expr: TWhile(ecnd, exp, norm) }:
-        { pos: expr.pos, 
+        { pos: expr.pos,
           t: expr.t,
-          expr: TWhile(ecnd, 
+          expr: TWhile(ecnd,
               transform(exp, flags, true), norm) };
       case { expr: TTry(tryexp, catches) }: {
         if (catches.length > 0 && isControlException(catches[0].v.t))
@@ -181,7 +209,7 @@ class Protect {
 
           var ncatches = catches.map(function(cExp) {
             return {
-              v: cExp.v, 
+              v: cExp.v,
               expr: transform(cExp.expr, flags, inLoop) };
           });
 
@@ -240,7 +268,7 @@ class Protect {
 
       case { expr: TContinue } |
            { expr: TThrow(_) }:
-        true;           
+        true;
 
       case { expr: TReturn(expr) }:
         expr != null;
@@ -257,7 +285,7 @@ class Protect {
       case { expr: TCall(e1, e2) }:
         needReturn(e1) || ( e2.length > 0 && Util.all(e2.map(needReturn)));
 
-      case { expr: TIf(e1, e2, e3) }:       
+      case { expr: TIf(e1, e2, e3) }:
         Util.all([e1, e2, e3].map(needReturn));
 
       case { expr: TSwitch(e1, cases, def) }:
@@ -283,7 +311,7 @@ class Protect {
       case { expr: TTry(tried, catches) }:
         needReturn(tried) && Util.all(catches.map(catchNeedsReturn));
 
-      default: 
+      default:
         false; // dunno
 
     };

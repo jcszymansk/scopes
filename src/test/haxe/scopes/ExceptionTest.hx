@@ -10,6 +10,7 @@ class ExceptionTest extends BuddySuite implements ScopeSyntax {
   public function new() {
 
     describe("exception guards", {
+      /*
       it("should select by exception", {
         var control = [];
 
@@ -88,7 +89,7 @@ class ExceptionTest extends BuddySuite implements ScopeSyntax {
         control.should.containExactly(["one", "test", "three"]);
 
       });
-
+*/
       it("should @quell exceptions", {
         var control = [];
 
