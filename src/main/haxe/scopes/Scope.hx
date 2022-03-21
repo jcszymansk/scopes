@@ -117,13 +117,13 @@ class Scope {
     var counter = genSym();
     var excName = genSym();
 
-    var bindings = { expr: (macro {
-      var $arrName: Array<scopes.Scope.ExitFunc> = [];
-      var $statusName: Null<Bool> = null;
+    var bindings = { expr: (macro
+      var $arrName: Array<scopes.Scope.ExitFunc> = [],
+          $statusName: Null<Bool> = null
 
-    }).expr, pos: mpos};
+    ).expr, pos: mpos};
 
-    var retx = scopes.Protect.protectBuild(bindings, ret, macro function ($excName) {
+    var retx = scopes.Protect.protectBuild(bindings, macro $b{ret}, macro function ($excName) {
 
       for ($i{counter} in $i{arrName}) {
         if (($i{counter}.fail == null) ||
@@ -137,7 +137,7 @@ class Scope {
 
     });
 
-    Sys.println(TypedExprTools.toString(Context.typeExpr(retx), false));
+    //Sys.println(TypedExprTools.toString(Context.typeExpr(retx), true));
 
     return checkReturns(retx, arrName);
 
